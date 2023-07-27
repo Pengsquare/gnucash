@@ -37,6 +37,48 @@
 
 
 <currencylist>
+
+<!-- Crypto -->
+
+<currency
+  isocode="SOL"
+  fullname="Solana"
+  unitname="SOL"
+  partname="lamports"
+  namespace="ISO4217"
+  exchange-code="SOL"
+  parts-per-unit="1000000000"
+  smallest-fraction="1000000000"
+  local-symbol="SOL"
+/>
+
+<currency
+  isocode="ETH"
+  fullname="Ethereum"
+  unitname="ETH"
+  partname="gwei"
+  namespace="ISO4217"
+  exchange-code="ETH"
+  parts-per-unit="1000000000"
+  smallest-fraction="1000000000"
+  local-symbol="ETH"
+/>
+
+<currency
+  isocode="XTZ"
+  fullname="Tezos"
+  unitname="XTZ"
+  partname="ytz"
+  namespace="ISO4217"
+  exchange-code="XTZ"
+  parts-per-unit= "1000000"
+  smallest-fraction= "1000000"
+  local-symbol="XTZ"
+/>
+
+<!-- End Crypto -->
+
+
 <!-- "ADF" - "Andorran Franc"
   2002-01-01 "FRF" 1  ;; = 1/1 French Franc replaced by EUR
 -->

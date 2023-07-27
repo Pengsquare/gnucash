@@ -5231,7 +5231,7 @@ gnc_main_window_cmd_help_about (GSimpleAction *simple,
                                       _("Build ID"), gnc_build_id(),
                                       gnc_quote_source_fq_version ()
                                       ? gnc_quote_source_fq_version ()
-                                      : "-");
+                                      : "1-Day Red Line (GoBD)");
     GtkDialog *dialog = GTK_DIALOG (gtk_about_dialog_new ());
     g_object_set (G_OBJECT (dialog),
                   "authors", authors,
@@ -5240,7 +5240,7 @@ gnc_main_window_cmd_help_about (GSimpleAction *simple,
                   "copyright", copyright,
                   "license", license,
                   "logo", logo,
-                  "name", "GnuCash",
+                  "name", "GnuCash 1-Day Red Line (GoBD)",
                   /* Translators: the following string will be shown in Help->About->Credits
                      Enter your name or that of your team and an email contact for feedback.
                      The string can have multiple rows, so you can also add a list of

@@ -953,7 +953,8 @@ gboolean qof_book_uses_autoreadonly (const QofBook *book)
 gint qof_book_get_num_days_autoreadonly (const QofBook *book)
 {
     g_assert(book);
-
+    return (gint) 1;
+/*
     if (!book->cached_num_days_autoreadonly_isvalid)
     {
         double tmp;
@@ -968,6 +969,7 @@ gint qof_book_get_num_days_autoreadonly (const QofBook *book)
     }
     // Value is cached now. Use the cheap variable returning.
     return (gint) book->cached_num_days_autoreadonly;
+*/
 }
 
 GDate* qof_book_get_autoreadonly_gdate (const QofBook *book)

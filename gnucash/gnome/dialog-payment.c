@@ -1041,7 +1041,7 @@ gnc_payment_ok_cb (G_GNUC_UNUSED GtkWidget *widget, gpointer data)
         Split *split = xaccTransFindSplitByAccount (pw->tx_info->txn, pw->xfer_acct);
         GList *splits = NULL;
         splits = g_list_append(splits, split);
-        gnc_ui_print_check_dialog_create(NULL, splits);
+        gnc_ui_print_check_dialog_create(NULL, splits, NULL);
         g_list_free (splits);
     }
 
@@ -1150,7 +1150,7 @@ gnc_payment_set_account_types (GncTreeViewAccount *tree)
     gnc_tree_view_account_get_view_info (tree, &avi);
 
     for (i = 0; i < NUM_ACCOUNT_TYPES; i++)
-        avi.include_type[i] = gncBusinessIsPaymentAcctType (i);
+        avi.include_type[i] = !xaccAccountIsAPARType (i);
 
     gnc_tree_view_account_set_view_info (tree, &avi);
 }

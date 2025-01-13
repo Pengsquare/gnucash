@@ -170,6 +170,9 @@ text_width (PangoLayout *layout)
 static void
 horizontal_scroll_to_found_text (PopBox* box, char* item_string, gint found_location)
 {
+    if (!gtk_widget_get_realized (GTK_WIDGET(box->item_list->tree_view)))
+        return;
+
     GtkAllocation alloc;
     gtk_widget_get_allocation (GTK_WIDGET(box->item_list->tree_view), &alloc);
     gint scroll_point = 0;
@@ -641,6 +644,7 @@ populate_list_store (CompletionCell* cell, const gchar* str)
     PopBox* box = cell->cell.gui_private;
 
     box->in_list_select = FALSE;
+    box->item_edit->popup_allocation_height = -1;
 
     if (box->stop_searching)
         return;
@@ -749,6 +753,24 @@ gnc_completion_cell_modify_verify (BasicCell* bcell,
     gnc_basic_cell_set_value_internal (bcell, newval);
 }
 
+static char*
+get_entry_from_hash_if_size_is_one (CompletionCell* cell)
+{
+    if (!cell)
+        return NULL;
+
+    PopBox* box = cell->cell.gui_private;
+
+    if (box->item_hash && (g_hash_table_size (box->item_hash) == 1))
+    {
+        GList *keys = g_hash_table_get_keys (box->item_hash);
+        char *ret = g_strdup (keys->data);
+        g_list_free (keys);
+        return ret;
+    }
+    return NULL;
+}
+
 static gboolean
 gnc_completion_cell_direct_update (BasicCell* bcell,
                                    int* cursor_position,
@@ -768,6 +790,19 @@ gnc_completion_cell_direct_update (BasicCell* bcell,
     case GDK_KEY_Tab:
     case GDK_KEY_ISO_Left_Tab:
         {
+            if (event->state & GDK_CONTROL_MASK)
+            {
+                char* hash_string = get_entry_from_hash_if_size_is_one (cell);
+
+                if (hash_string)
+                {
+                    gnc_basic_cell_set_value_internal (bcell, hash_string);
+                    *cursor_position = strlen (hash_string);
+                }
+                g_free (hash_string);
+                return TRUE;
+            }
+
             char* string = gnc_item_list_get_selection (box->item_list);
 
             if (!string)
@@ -870,27 +905,20 @@ gnc_completion_cell_gui_move (BasicCell* bcell)
 }
 
 static int
-popup_get_height (G_GNUC_UNUSED GtkWidget* widget,
+popup_get_height (GtkWidget* widget,
                   int space_available,
-                  int row_height,
+                  G_GNUC_UNUSED int row_height,
                   gpointer user_data)
 {
     PopBox* box = user_data;
     GtkScrolledWindow* scrollwin = GNC_ITEM_LIST(widget)->scrollwin;
-    GtkWidget *hsbar = gtk_scrolled_window_get_hscrollbar (scrollwin);
-    GtkStyleContext *context = gtk_widget_get_style_context (hsbar);
-    /* Note: gtk_scrolled_window_get_overlay_scrolling (scrollwin) always returns
-       TRUE so look for style class "overlay-indicator" on the scrollbar. */
-    gboolean overlay = gtk_style_context_has_class (context, "overlay-indicator");
-    int count = gnc_item_list_num_entries (box->item_list);
-    int height = count * (gnc_item_list_get_cell_height (box->item_list) + 2);
+    int height;
 
-    if (!overlay)
-    {
-        gint minh, nath;
-        gtk_widget_get_preferred_height (hsbar, &minh, &nath);
-        height = height + minh;
-    }
+    // if popup_allocation_height set use that
+    if (box->item_edit->popup_allocation_height != -1)
+        height = box->item_edit->popup_allocation_height;
+    else
+        height = gnc_item_list_get_popup_height (GNC_ITEM_LIST(widget));
 
     if (height < space_available)
     {

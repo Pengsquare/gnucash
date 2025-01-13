@@ -312,6 +312,11 @@ typedef enum
     void xaccAccountSetSortReversed (Account *account, gboolean sortreversed);
     /** Set the account's notes */
     void xaccAccountSetNotes (Account *account, const char *notes);
+
+    /** Set the account's associated account e.g. stock account -> dividend account */
+    void xaccAccountSetAssociatedAccount (Account *acc, const char *tag,
+                                          const Account *assoc_acct);
+
     /** Set the last num field of an Account */
     void xaccAccountSetLastNum (Account *account, const char *num);
     /** Set the account's lot order policy */
@@ -416,6 +421,9 @@ typedef enum
     gboolean xaccAccountGetSortReversed (const Account *account);
     /** Get the account's notes */
     const char * xaccAccountGetNotes (const Account *account);
+
+    /** Get the account's associated account e.g. stock account -> dividend account */
+    Account* xaccAccountGetAssociatedAccount (const Account *acc, const char *tag);
     /** Get the last num field of an Account */
     const char * xaccAccountGetLastNum (const Account *account);
     /** Get the account's lot order policy */
@@ -1052,6 +1060,8 @@ typedef enum
      */
     SplitList* xaccAccountGetSplitList (const Account *account);
 
+    size_t xaccAccountGetSplitsSize (const Account *account);
+
     /** The xaccAccountMoveAllSplits() routine reassigns each of the splits
      *  in accfrom to accto. */
     void xaccAccountMoveAllSplits (Account *accfrom, Account *accto);
@@ -1483,12 +1493,6 @@ typedef enum
      */
     void gnc_account_tree_begin_staged_transaction_traversals(Account *acc);
 
-    /** xaccSplitsBeginStagedTransactionTraversals() resets the traversal
-     *    marker for each transaction which is a parent of one of the
-     *    splits in the list.
-     */
-    void xaccSplitsBeginStagedTransactionTraversals(SplitList *splits);
-
     /** xaccAccountBeginStagedTransactionTraversals() resets the traversal
      *    marker for each transaction which is a parent of one of the
      *    splits in the account.
@@ -1611,6 +1615,11 @@ typedef enum
         char           *count;
     }GncImapInfo;
 
+    /** Clean destructor for the imap_info structure of Bayesian
+     *  mappings
+     */
+    void gnc_account_imap_info_destroy (GncImapInfo*);
+
     /** Returns a GList of structure imap_info of all Bayesian mappings for
      *  required Account
      */
@@ -1677,8 +1686,6 @@ typedef enum
      *  commodity, not the account. */
     const char * dxaccAccountGetQuoteTZ (const Account *account);
     /** @} */
-
-    GList * gnc_accounts_and_all_descendants (GList *accounts);
 
     /** @name Account parameter names
      @{

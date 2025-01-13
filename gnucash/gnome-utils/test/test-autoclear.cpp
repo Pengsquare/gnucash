@@ -26,6 +26,7 @@
 // GoogleTest is written in C++, however, the function we test in C.
 #include "../gnc-autoclear.h"
 #include <memory>
+#include <cstdint>
 #include <Account.h>
 #include <Split.h>
 #include <gtest/gtest.h>
@@ -100,9 +101,8 @@ TestCase ambiguousTestCase = {
         { -10, "Cannot uniquely clear splits. Found multiple possibilities." },
         { -20, "Cannot uniquely clear splits. Found multiple possibilities." },
 
-        // Forbid auto-clear to be too smart. We expect the user to manually deal
-        // with such situations.
-        { -30, "Cannot uniquely clear splits. Found multiple possibilities." },
+        // -30 can be cleared by returning all three -10 splits
+        { -30, nullptr },
     },
 };
 
@@ -146,12 +146,15 @@ TEST_P(AutoClearTest, DoesAutoClear) {
             xaccSplitSetReconcile(split, CREC);
         }
 
+        g_list_free (splits_to_clear);
+
         ASSERT_STREQ(err, t.expectedErr);
         if (t.expectedErr == NULL) {
             gnc_numeric c = xaccAccountGetClearedBalance(m_account);
             ASSERT_EQ(c.num, t.amount);
             ASSERT_EQ(c.denom, DENOM);
         }
+        g_free (err);
     }
 }
 

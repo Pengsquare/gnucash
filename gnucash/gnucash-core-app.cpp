@@ -40,8 +40,6 @@
 #include <gnc-locale-utils.h>
 #include <gnc-path.h>
 #include <gnc-prefs.h>
-#include <gnc-gsettings.h>
-#include <gnc-splash.h>
 #include <gnc-version.h>
 #include "gnucash-locale-platform.h"
 
@@ -61,7 +59,7 @@ static QofLogModule log_module = GNC_MOD_GUI;
 #include <locale.h>
 #include <gnc-locale-utils.hpp>
 
-/* GNC_VCS is defined whenever we're building from an svn/svk/git/bzr tree */
+/* GNC_VCS is defined whenever we're building from a git work tree */
 #ifdef GNC_VCS
 constexpr int is_development_version = TRUE;
 #else
@@ -84,22 +82,15 @@ gnc_print_unstable_message(void)
               << bl::format (std::string{_("To find the last stable version, please refer to {1}")}) % PACKAGE_URL << "\n";
 }
 
-static void
-update_message(const gchar *msg)
-{
-    gnc_update_splash_screen(msg, GNC_SPLASH_PERCENTAGE_UNKNOWN);
-    PINFO("%s", msg);
-}
-
 void
-Gnucash::gnc_load_scm_config (void)
+Gnucash::gnc_load_scm_config (MessageCb update_message_cb)
 {
     static auto is_system_config_loaded = false;
     if (!is_system_config_loaded)
     {
         /* Translators: Guile is the programming language of the reports */
         auto msg = _("Loading system wide Guile extensions…");
-        update_message (msg);
+        update_message_cb (msg);
         auto system_config_dir = gnc_path_get_pkgsysconfdir ();
         auto system_config = g_build_filename (system_config_dir, "config", nullptr);
         is_system_config_loaded = gfec_try_load (system_config);
@@ -111,7 +102,7 @@ Gnucash::gnc_load_scm_config (void)
     if (!is_user_config_loaded)
     {
         auto msg = _("Loading user specific Guile extensions…");
-        update_message (msg);
+        update_message_cb (msg);
         auto config_filename = g_build_filename (gnc_userconfig_dir (), "config-user.scm", nullptr);
         is_user_config_loaded = gfec_try_load (config_filename);
         g_free (config_filename);
@@ -184,10 +175,10 @@ Gnucash::CoreApp::CoreApp (const char* app_name) : m_app_name {app_name}
      * The user may have configured a different language via
      * the environment file.
      */
+    gnc_environment_setup();
     #if defined MAC_INTEGRATION || defined __MINGW32__
     sys_locale = set_platform_locale();
     #endif
-    gnc_environment_setup();
     #if ! defined MAC_INTEGRATION && ! defined __MINGW32__/* setlocale already done */
     sys_locale = g_strdup (setlocale (LC_ALL, ""));
     if (!sys_locale)

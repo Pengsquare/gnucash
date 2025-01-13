@@ -217,14 +217,11 @@
 ;; Get the list of all different commodities that are used within the
 ;; 'accounts', excluding the 'exclude-commodity'.
 (define (gnc:accounts-get-commodities accounts exclude-commodity)
-  (delete exclude-commodity
-          (sort-and-delete-duplicates
-           (map xaccAccountGetCommodity accounts)
-           (lambda (a b)
-             (gnc:string-locale<? (gnc-commodity-get-unique-name a)
-                                  (gnc-commodity-get-unique-name b)))
-           gnc-commodity-equiv)))
-
+  (if (null? accounts)
+      '()
+      (let ((comm (xaccAccountGetCommodity (car accounts)))
+            (accum (gnc:accounts-get-commodities (cdr accounts) exclude-commodity)))
+        (if (or (equal? exclude-commodity comm) (member comm accum)) accum (cons comm accum)))))
 
 ;; Returns the depth of the current account hierarchy, that is, the
 ;; maximum level of subaccounts in the tree
@@ -479,8 +476,8 @@
   (define (less? a b) (< (to-date a) (to-date b)))
 
   (let lp ((splits (if split->date
-                       (stable-sort! (xaccAccountGetSplitList acc) less?)
-                       (xaccAccountGetSplitList acc)))
+                       (sort (xaccAccountGetSplits acc) less?)
+                       (xaccAccountGetSplits acc)))
            (dates (sort dates <))
            (result '())
            (last-result nosplit->elt))
@@ -669,7 +666,7 @@
 
 ;; function to count the total number of splits to be iterated
 (define (gnc:accounts-count-splits accounts)
-  (fold (lambda (a b) (+ b (length (xaccAccountGetSplitList a)))) 0 accounts))
+  (fold (lambda (a b) (+ b (xaccAccountGetSplitsSize a))) 0 accounts))
 
 ;; Sums up any splits of a certain type affecting a set of accounts.
 ;; the type is an alist '((str "match me") (cased #f) (regexp #f))
@@ -1208,6 +1205,15 @@
           (maybe-str 'Action (xaccSplitGetAction s))
           (maybe-str 'Memo (xaccSplitGetMemo s))))
 
+(define-public (gnc:dump-transaction trans)
+  (format #t "  Transaction:~a Date:~a Currency:~a ~a ~a\n"
+          (string-take (gncTransGetGUID trans) 8)
+          (qof-print-date (xaccTransGetDate trans))
+          (gnc-commodity-get-mnemonic (xaccTransGetCurrency trans))
+          (maybe-str 'Desc (xaccTransGetDescription trans))
+          (maybe-str 'Notes (xaccTransGetNotes trans)))
+  (for-each (cut gnc:dump-split <> #t) (xaccTransGetSplitList trans)))
+
 (define-public (gnc:dump-all-transactions)
   (define query (qof-query-create-for-splits))
   (define (split-has-no-account? split) (null? (xaccSplitGetAccount split)))
@@ -1222,13 +1228,7 @@
       (((? split-has-no-account?) . rest) (lp rest))
       ((split . rest)
        (let ((trans (xaccSplitGetParent split)))
-         (format #t "  Trans ~a: ~a Curr ~a ~a~a\n"
-                 (string-take (gncTransGetGUID trans) 8)
-                 (qof-print-date (xaccTransGetDate trans))
-                 (gnc-commodity-get-mnemonic (xaccTransGetCurrency trans))
-                 (maybe-str 'Desc (xaccTransGetDescription trans))
-                 (maybe-str 'Notes (xaccTransGetNotes trans)))
-         (for-each (cut gnc:dump-split <> #t) (xaccTransGetSplitList trans))
+         (gnc:dump-transaction trans)
          (lp rest))))))
 
 ;; utility function for testing. dumps the whole book contents to
@@ -1242,7 +1242,7 @@
              (gnc-account-get-full-name acc)
              (gnc-commodity-get-mnemonic (xaccAccountGetCommodity acc))
              (xaccAccountGetTypeStr (xaccAccountGetType acc)))
-     (for-each (cut gnc:dump-split <> #f) (xaccAccountGetSplitList acc))
+     (for-each (cut gnc:dump-split <> #f) (xaccAccountGetSplits acc))
      (format #t "         Balance: ~a Cleared: ~a Reconciled: ~a\n"
              (gnc:monetary->string
               (gnc:make-gnc-monetary
@@ -1267,7 +1267,7 @@
                             (gnc-get-current-root-account))))
          (inv-txns (filter (lambda (t) (eqv? (xaccTransGetTxnType t) TXN-TYPE-INVOICE))
                            (map xaccSplitGetParent
-                                (append-map xaccAccountGetSplitList acc-APAR))))
+                                (append-map xaccAccountGetSplits acc-APAR))))
          (invoices (map gncInvoiceGetInvoiceFromTxn inv-txns)))
     (define (maybe-date time64)         ;handle INT-MAX differently
       (if (= 9223372036854775807 time64) "?" (qof-print-date time64)))

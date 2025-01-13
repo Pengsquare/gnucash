@@ -34,11 +34,11 @@
 
 #include <gnc-xml-helper.h>
 #include <Account.h>
-#include <AccountP.h>
+#include <AccountP.hpp>
 #include <Query.h>
 #include <Scrub.h>
 #include <Transaction.h>
-#include <TransactionP.h>
+#include <TransactionP.hpp>
 #include <TransLog.h>
 #include <gnc-pricedb.h>
 #include <gnc-pricedb-p.h>
@@ -471,6 +471,13 @@ simple_kvp_value_parser_new (sixtp_end_handler end_handler)
    chars-fail: g_free (for chars)
 
  */
+
+static gboolean
+string_to_gnc_numeric(const gchar* str, gnc_numeric *n)
+{
+    *n = gnc_numeric_from_string (str);
+    return (!gnc_numeric_check (*n));
+}
 
 /* ------------------------------------------------------------ */
 /* generic type copnversion for kvp types */

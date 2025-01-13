@@ -36,7 +36,6 @@
 #include <gnc-engine-guile.h>
 #include <gnc-prefs.h>
 #include <gnc-prefs-utils.h>
-#include <gnc-gnome-utils.h>
 #include <gnc-session.h>
 #include <qoflog.h>
 
@@ -74,12 +73,19 @@ cleanup_and_exit_with_failure (QofSession *session)
     return 1;
 }
 
+static void gnc_shutdown_cli (int exit_status)
+{
+    gnc_hook_run (HOOK_SHUTDOWN, NULL);
+    gnc_engine_shutdown ();
+    exit (exit_status);
+}
+
 /* scm_boot_guile doesn't expect to return, so call shutdown ourselves here */
 static void
 scm_cleanup_and_exit_with_failure (QofSession *session)
 {
     cleanup_and_exit_with_failure (session);
-    gnc_shutdown (1);
+    gnc_shutdown_cli (1);
 }
 
 static void
@@ -130,7 +136,7 @@ scm_run_report (void *data,
     scm_c_use_module ("gnucash reports");
 
     gnc_report_init ();
-    Gnucash::gnc_load_scm_config();
+    Gnucash::gnc_load_scm_config ([](const gchar *msg){ PINFO ("%s", msg); });
     gnc_prefs_init ();
     qof_event_suspend ();
 
@@ -166,8 +172,6 @@ scm_run_report (void *data,
     if (qof_session_get_error (session) != ERR_BACKEND_NO_ERR)
         scm_cleanup_and_exit_with_failure (session);
 
-    char *output;
-
     if (!args->export_type.empty())
     {
         SCM retval = scm_call_2 (run_export_cmd, report, type);
@@ -187,7 +191,7 @@ return a document object with export-string or export-error.") << std::endl;
 
         if (scm_is_string (export_string))
         {
-            output = scm_to_utf8_string (export_string);
+            auto output = scm_to_utf8_string (export_string);
             if (!args->output_file.empty())
             {
                 write_report_file(output, args->output_file.c_str());
@@ -196,11 +200,13 @@ return a document object with export-string or export-error.") << std::endl;
             {
                 std::cout << output << std::endl;
             }
+            g_free (output);
         }
         else if (scm_is_string (export_error))
         {
             auto err = scm_to_utf8_string (export_error);
             std::cerr << err << std::endl;
+            g_free (err);
             scm_cleanup_and_exit_with_failure (nullptr);
         }
         else
@@ -228,17 +234,19 @@ return a document object with export-string or export-error.") << std::endl;
             {
                 std::cout << html << std::endl;
             }
+            g_free (html);
         }
         else
         {
             std::cerr << errmsg << std::endl;
+            g_free (errmsg);
         }
     }
 
     qof_session_destroy (session);
 
     qof_event_resume ();
-    gnc_shutdown (0);
+    gnc_shutdown_cli (0);
     return;
 }
 
@@ -259,7 +267,7 @@ scm_report_show (void *data,
     scm_c_use_module ("gnucash app-utils");
     scm_c_use_module ("gnucash reports");
     gnc_report_init ();
-    Gnucash::gnc_load_scm_config();
+    Gnucash::gnc_load_scm_config ([](const gchar *msg){ PINFO ("%s", msg); });
 
     if (!args->file_to_load.empty())
     {
@@ -278,7 +286,7 @@ scm_report_show (void *data,
     scm_call_2 (scm_c_eval_string ("gnc:cmdline-report-show"),
                 scm_from_locale_string (args->show_report.c_str ()),
                 scm_current_output_port ());
-    gnc_shutdown (0);
+    gnc_shutdown_cli (0);
     return;
 }
 
@@ -291,11 +299,11 @@ scm_report_list ([[maybe_unused]] void *data,
     scm_c_use_module ("gnucash app-utils");
     scm_c_use_module ("gnucash reports");
     gnc_report_init ();
-    Gnucash::gnc_load_scm_config();
+    Gnucash::gnc_load_scm_config ([](const gchar *msg){ PINFO ("%s", msg); });
 
     scm_call_1 (scm_c_eval_string ("gnc:cmdline-report-list"),
                 scm_current_output_port ());
-    gnc_shutdown (0);
+    gnc_shutdown_cli (0);
     return;
 }
 
@@ -353,9 +361,8 @@ Gnucash::add_quotes (const bo_str& uri)
     {
         GncQuotes quotes;
         std::cout << bl::format (bl::translate ("Found Finance::Quote version {1}.")) % quotes.version() << std::endl;
-        auto quote_sources = quotes.sources_as_glist();
+        auto quote_sources = quotes.sources();
         gnc_quote_source_set_fq_installed (quotes.version().c_str(), quote_sources);
-        g_list_free_full (quote_sources, g_free);
         quotes.fetch(qof_session_get_book(session));
         if (quotes.had_failures())
             std::cerr << quotes.report_failures() << std::endl;

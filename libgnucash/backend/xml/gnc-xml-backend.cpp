@@ -234,7 +234,9 @@ GncXmlBackend::load(QofBook* book, QofBackendLoadType loadType)
     if (loadType != LOAD_TYPE_INITIAL_LOAD) return;
 
     error = ERR_BACKEND_NO_ERR;
-    m_book = book;
+    if (m_book)
+        g_object_unref(m_book);
+    m_book = QOF_BOOK(g_object_ref(book));
 
     int rc;
     switch (determine_file_type (m_fullpath))
@@ -306,7 +308,8 @@ GncXmlBackend::sync(QofBook* book)
      * for multiple books have been removed in the meantime and there is just one
      * book, no more.
      */
-    if (m_book == nullptr) m_book = book;
+    if (m_book == nullptr)
+        m_book = QOF_BOOK(g_object_ref(book));
     if (book != m_book) return;
 
     if (qof_book_is_readonly (m_book))
@@ -775,7 +778,7 @@ GncXmlBackend::remove_old_files ()
              * juggling, but considering the above tests, this should always
              * be safe */
             regex_t pattern;
-            gchar* stamp_start = name + strlen (m_fullpath.c_str());
+            gchar* stamp_start = name + m_fullpath.size();
             gchar* expression = g_strdup_printf ("^\\.[[:digit:]]{14}(\\%s|\\%s|\\.xac)$",
                                                  GNC_DATAFILE_EXT, GNC_LOGFILE_EXT);
             gboolean got_date_stamp = FALSE;

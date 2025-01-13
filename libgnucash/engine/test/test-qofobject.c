@@ -304,6 +304,7 @@ test_qof_object_book_begin( Fixture *fixture, gconstpointer pData )
     g_assert_cmpint( object_book_begin_struct.call_count, == , list_length );
 
     qof_book_destroy( book2 );
+    qof_object_foreach_type ((QofForeachTypeCB)g_free, NULL);
 }
 
 static void
@@ -333,6 +334,7 @@ test_qof_object_book_end( Fixture *fixture, gconstpointer pData )
     qof_book_destroy( book2 ); /* calls object_book_end */
     g_assert_cmpint( object_book_begin_struct.call_count, == , list_length );
     g_assert_cmpint( 0, == , g_list_length( get_book_list() ) );
+    qof_object_foreach_type ((QofForeachTypeCB)g_free, NULL);
 }
 
 static struct
@@ -388,6 +390,7 @@ test_qof_object_is_dirty( Fixture *fixture, gconstpointer pData )
     g_assert_cmpint( object_dirty_struct.call_count, == , 1 ); /* should break on first */
 
     qof_book_destroy( book );
+    qof_object_foreach_type ((QofForeachTypeCB)g_free, NULL);
 }
 
 static struct
@@ -431,6 +434,7 @@ test_qof_object_mark_clean( Fixture *fixture, gconstpointer pData )
     g_assert_cmpint( object_mark_clean_struct.call_count, == , list_length );
 
     qof_book_destroy( book );
+    qof_object_foreach_type ((QofForeachTypeCB)g_free, NULL);
 }
 
 static struct
@@ -558,6 +562,7 @@ test_qof_object_foreach_type( Fixture *fixture, gconstpointer pData )
     foreach_type_cb_struct.call_count = 0;
     qof_object_foreach_type( mock_foreach_type_cb, ( gpointer ) &user_data );
     g_assert_cmpint( foreach_type_cb_struct.call_count, == , list_length );
+    qof_object_foreach_type ((QofForeachTypeCB)g_free, NULL);
 }
 
 static struct
@@ -680,7 +685,7 @@ test_qof_object_foreach_sorted( Fixture *fixture, gconstpointer pData )
     g_assert_cmpint( list_length, == , foreach_for_sorted_struct.call_count );
 
     qof_book_destroy( book );
-    g_list_free( foreach_for_sorted_struct.instances );
+    g_list_free_full (foreach_for_sorted_struct.instances, g_object_unref);
 }
 
 void

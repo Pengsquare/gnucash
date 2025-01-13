@@ -28,6 +28,7 @@
 #include <kvp-frame.hpp>
 #include <gtest/gtest.h>
 #include <string>
+#include <cstdint>
 
 class ImapTest : public testing::Test
 {
@@ -38,30 +39,37 @@ protected:
 
         t_asset_account1 = xaccMallocAccount(book);
         xaccAccountSetName(t_asset_account1, "Asset");
+        xaccAccountSetType(t_asset_account1, ACCT_TYPE_ASSET);
         gnc_account_append_child(root, t_asset_account1);
 
         t_bank_account = xaccMallocAccount(book);
         xaccAccountSetName(t_bank_account, "Bank");
+        xaccAccountSetType(t_bank_account, ACCT_TYPE_BANK);
         gnc_account_append_child(t_asset_account1, t_bank_account);
 
         t_asset_account2 = xaccMallocAccount(book);
         xaccAccountSetName(t_asset_account2, "Asset-Bank");
+        xaccAccountSetType(t_asset_account2, ACCT_TYPE_ASSET);
         gnc_account_append_child(root, t_asset_account2);
 
         t_sav_account = xaccMallocAccount(book);
         xaccAccountSetName(t_sav_account, "Bank");
+        xaccAccountSetType(t_sav_account,ACCT_TYPE_BANK);
         gnc_account_append_child(t_asset_account2, t_sav_account);
 
         t_expense_account = xaccMallocAccount(book);
         xaccAccountSetName(t_expense_account, "Expense");
+        xaccAccountSetType(t_expense_account, ACCT_TYPE_EXPENSE);
         gnc_account_append_child(root, t_expense_account);
 
         t_expense_account1 = xaccMallocAccount(book);
         xaccAccountSetName(t_expense_account1, "Food");
+        xaccAccountSetType(t_expense_account1, ACCT_TYPE_EXPENSE);
         gnc_account_append_child(t_expense_account, t_expense_account1);
 
         t_expense_account2 = xaccMallocAccount(book);
         xaccAccountSetName(t_expense_account2, "Drink");
+        xaccAccountSetType(t_expense_account2, ACCT_TYPE_EXPENSE);
         gnc_account_append_child(t_expense_account, t_expense_account2);
     }
     void TearDown() {
@@ -266,6 +274,8 @@ TEST_F(ImapBayesTest, FindAccountBayes)
     root->set_path({std::string{IMAP_FRAME_BAYES} + "/" + pepper + "/" + waldo + "/" + acct2_guid}, new KvpValue{*value});
     account = gnc_account_imap_find_account_bayes(t_acc, t_list3);
     EXPECT_EQ(t_expense_account1, account);
+    g_free (acct1_guid);
+    g_free (acct2_guid);
 }
 
 TEST_F(ImapBayesTest, AddAccountBayes)
@@ -309,6 +319,8 @@ TEST_F(ImapBayesTest, AddAccountBayes)
     qof_instance_reset_editlevel(QOF_INSTANCE(t_bank_account));
     value = root->get_slot({std::string{IMAP_FRAME_BAYES} + "/" + baz + "/" + acct2_guid});
     EXPECT_EQ(2, value->get<int64_t>());
+    g_free (acct1_guid);
+    g_free (acct2_guid);
 }
 
 TEST_F(ImapBayesTest, ConvertBayesData)
@@ -353,6 +365,10 @@ TEST_F(ImapBayesTest, ConvertBayesData)
     value = root->get_slot({std::string{IMAP_FRAME_BAYES} + "/" + salt + "/" + acct1_guid});
     EXPECT_EQ(10, value->get<int64_t>());
     EXPECT_TRUE(qof_instance_get_dirty_flag(QOF_INSTANCE(t_bank_account)));
+    g_free (acct1_guid);
+    g_free (acct2_guid);
+    g_free (acct3_guid);
+    g_free (acct4_guid);
 }
 
 /* Tests the import map's handling of KVP delimiters */
@@ -365,6 +381,7 @@ TEST_F (ImapBayesTest, import_map_with_delimiters)
     gnc_account_imap_add_account_bayes (t_acc, tokens, t_expense_account1);
     auto account = gnc_account_imap_find_account_bayes (t_acc, tokens);
     EXPECT_EQ (account, t_expense_account1);
+    g_list_free (tokens);
 }
 
 TEST_F (ImapBayesTest, get_bayes_info)
@@ -383,5 +400,8 @@ TEST_F (ImapBayesTest, get_bayes_info)
     EXPECT_STREQ (info->head, (std::string {IMAP_FRAME_BAYES} + "/one/two/three/" + acct1_guid).c_str ());
     EXPECT_STREQ (info->match_string, "one/two/three");
     EXPECT_STREQ (info->count, "1");
+    g_list_free_full (infos, (GDestroyNotify)gnc_account_imap_info_destroy);
+    g_list_free (tokens);
+    g_free (acct1_guid);
 }
 

@@ -34,6 +34,8 @@ static const GncGUID * gncAccountGetGUID(Account *x)
 %typemap(newfree) LotList * "g_list_free($1);"
 %typemap(newfree) CommodityList * "g_list_free($1);"
 
+%typemap(freearg) AccountList * "g_list_free($1);"
+
 %include <Split.h>
 
 %newobject gnc_account_get_children;
@@ -48,14 +50,10 @@ AccountList * gnc_account_get_descendants (const Account *account);
 %newobject gnc_account_get_descendants_sorted;
 AccountList * gnc_account_get_descendants_sorted (const Account *account);
 
-%newobject gnc_accounts_and_all_descendants;
-AccountList * gnc_accounts_and_all_descendants (AccountList *accounts);
-
 %ignore gnc_account_get_children;
 %ignore gnc_account_get_children_sorted;
 %ignore gnc_account_get_descendants;
 %ignore gnc_account_get_descendants_sorted;
-%ignore gnc_accounts_and_all_descendants;
 %include <Account.h>
 
 %include <Transaction.h>

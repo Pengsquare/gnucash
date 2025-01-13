@@ -368,6 +368,7 @@ _get_vars_helper(Transaction *txn, void *var_hash_data)
             var_name = var_name_from_commodities(split_cmdty, txn_cmdty);
             var = gnc_sx_variable_new(var_name);
             g_hash_table_insert(var_hash, g_strdup(var->name), var);
+            g_free (var_name);
         }
     }
 
@@ -1477,9 +1478,12 @@ gnc_sx_instance_model_effect_change(GncSxInstanceModel *model,
                         gnc_sx_instance_model_change_instance_state
                             (model, inst, SX_INSTANCE_STATE_CREATED);
                     }
-                    else
+                    else if (creation_errors)
+                    {
                         *creation_errors = g_list_concat (*creation_errors,
                                                           instance_errors);
+                        instance_errors = NULL;
+                    }
                     break;
                 case SX_INSTANCE_STATE_REMINDER:
                     // do nothing
@@ -1489,6 +1493,9 @@ gnc_sx_instance_model_effect_change(GncSxInstanceModel *model,
                     g_assert_not_reached();
                     break;
             }
+
+            if (instance_errors)
+                g_list_free_full (instance_errors, g_free);
         }
 
         xaccSchedXactionSetLastOccurDate(instances->sx, last_occur_date);

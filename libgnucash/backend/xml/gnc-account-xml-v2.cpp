@@ -27,7 +27,7 @@
 #include <config.h>
 #include <stdlib.h>
 #include <string.h>
-#include <AccountP.h>
+#include <AccountP.hpp>
 #include <Account.h>
 
 #include "gnc-xml-helper.h"
@@ -121,13 +121,13 @@ gnc_account_dom_tree_create (Account* act,
     }
 
     str = xaccAccountGetCode (act);
-    if (str && strlen (str) > 0)
+    if (str && *str)
     {
         xmlAddChild (ret, text_to_dom_tree (act_code_string, str));
     }
 
     str = xaccAccountGetDescription (act);
-    if (str && strlen (str) > 0)
+    if (str && *str)
     {
         xmlAddChild (ret, text_to_dom_tree (act_description_string, str));
     }
@@ -375,7 +375,7 @@ account_parent_handler (xmlNodePtr node, gpointer act_pdata)
     parent = xaccAccountLookup (gid, pdata->book);
     if (!parent)
     {
-        g_free (gid);
+        guid_free (gid);
         g_return_val_if_fail (parent, FALSE);
     }
 

@@ -294,6 +294,7 @@ scm_from_value<GncOptionAccountList>(GncOptionAccountList value)
     for (auto guid : value)
     {
         auto acct{xaccAccountLookup(&guid, book)};
+        if (!GNC_IS_ACCOUNT(acct)) continue;
         s_list = scm_cons(SWIG_NewPointerObj(acct, SWIGTYPE_p_Account, 0),
                           s_list);
     }
@@ -317,6 +318,12 @@ scm_from_value<GncOptionReportPlacementVec>(GncOptionReportPlacementVec value)
         s_list = scm_cons(scm_list_4(scm_id, scm_wide, scm_high, SCM_BOOL_F), s_list);
     }
     return scm_reverse(s_list);
+}
+
+template <> inline SCM
+scm_from_value<GncOptionDateFormat>(GncOptionDateFormat value)
+{
+    return SCM_BOOL_F;
 }
 
 static std::string
@@ -564,7 +571,6 @@ gnc_option_test_book_destroy(QofBook* book)
 %ignore operator>>(std::istream&, GncOption&);
 %ignore GncOption::_get_option();
 
-
 %rename(gnc_register_date_option_set)
     gnc_register_date_option(GncOptionDBPtr&, const char*, const char*,
                              const char*, const char*, RelativeDatePeriodVec&,
@@ -588,10 +594,9 @@ gnc_option_test_book_destroy(QofBook* book)
 
 %typemap(in) RelativeDatePeriodVec& (RelativeDatePeriodVec period_set)
 {
-    auto len = scm_is_true($input) ? scm_to_size_t(scm_length($input)) : 0;
-    for (std::size_t i = 0; i < len; ++i)
+    for (SCM node = $input; !scm_is_null (node); node = scm_cdr (node))
     {
-        SCM s_reldateperiod = scm_list_ref($input, scm_from_size_t(i));
+        SCM s_reldateperiod = scm_car (node);
         period_set.push_back(scm_relative_date_get_period(s_reldateperiod));
     }
     $1 = &period_set;
@@ -601,10 +606,9 @@ gnc_option_test_book_destroy(QofBook* book)
 {
     if (scm_is_true($input))
     {
-        auto len{scm_to_size_t(scm_length($input))};
-        for (std::size_t i = 0; i < len; ++i)
+        for (SCM node = $input; !scm_is_null (node); node = scm_cdr (node))
         {
-            auto val{scm_list_ref($input, scm_from_size_t(i))};
+            auto val{scm_car (node)};
             if (scm_is_unsigned_integer(val, 0, UINT_MAX))
                 indexes.push_back(scm_to_unsigned_integer(val, 0, UINT_MAX));
         }
@@ -615,10 +619,9 @@ gnc_option_test_book_destroy(QofBook* book)
 %typemap(in) GncMultichoiceOptionChoices&& (GncMultichoiceOptionChoices choices)
 {
     using KeyType = GncOptionMultichoiceKeyType;
-    auto len = scm_is_true($input) ? scm_to_size_t(scm_length($input)) : 0;
-    for (std::size_t i = 0; i < len; ++i)
+    for (SCM node = $input; !scm_is_null (node); node = scm_cdr (node))
     {
-        SCM vec = scm_list_ref($input, scm_from_size_t(i));
+        SCM vec = scm_car (node);
         SCM keyval, v_ref_0 = SCM_SIMPLE_VECTOR_REF(vec, 0);
         GncOptionMultichoiceKeyType keytype;
         if (scm_is_symbol(v_ref_0))
@@ -650,23 +653,21 @@ gnc_option_test_book_destroy(QofBook* book)
 
 %typemap(in) GncOptionAccountList
 {
-    auto len = scm_is_true($input) ? scm_to_size_t(scm_length($input)) : 0;
-    for (std::size_t i = 0; i < len; ++i)
+    for (SCM node = $input; !scm_is_null (node); node = scm_cdr (node))
     {
-        SCM s_account = scm_list_ref($input, scm_from_size_t(i));
+        SCM s_account = scm_car (node);
         Account* acct = (Account*)SWIG_MustGetPtr(s_account,
                                                   SWIGTYPE_p_Account, 1, 0);
-        if (acct)
+        if (GNC_IS_ACCOUNT(acct))
             $1.push_back(*qof_entity_get_guid(acct));
     }
 }
 
 %typemap(in) GncOptionAccountTypeList& (GncOptionAccountTypeList types)
 {
-    auto len = scm_is_true($input) ? scm_to_size_t(scm_length($input)) : 0;
-    for (std::size_t i = 0; i < len; ++i)
+    for (SCM node = $input; !scm_is_null (node); node = scm_cdr (node))
     {
-        SCM s_type = scm_list_ref($input, scm_from_size_t(i));
+        SCM s_type = scm_car (node);
         GNCAccountType type = (GNCAccountType)scm_to_int(s_type);
         types.push_back(type);
     }
@@ -675,10 +676,9 @@ gnc_option_test_book_destroy(QofBook* book)
 
 %typemap(in) GncOptionAccountTypeList&& (GncOptionAccountTypeList types)
 {
-    auto len = scm_is_true($input) ? scm_to_size_t(scm_length($input)) : 0;
-    for (std::size_t i = 0; i < len; ++i)
+    for (SCM node = $input; !scm_is_null (node); node = scm_cdr (node))
     {
-        SCM s_type = scm_list_ref($input, scm_from_size_t(i));
+        SCM s_type = scm_car (node);
         GNCAccountType type = (GNCAccountType)scm_to_int(s_type);
         types.push_back(type);
     }
@@ -687,13 +687,12 @@ gnc_option_test_book_destroy(QofBook* book)
 
 %typemap(in) GncOptionAccountList const & (GncOptionAccountList alist)
 {
-    auto len = scm_is_true($input) ? scm_to_size_t(scm_length($input)) : 0;
-    for (std::size_t i = 0; i < len; ++i)
+    for (SCM node = $input; !scm_is_null (node); node = scm_cdr (node))
     {
-        SCM s_account = scm_list_ref($input, scm_from_size_t(i));
+        SCM s_account = scm_car (node);
         Account* acct = (Account*)SWIG_MustGetPtr(s_account,
                                                   SWIGTYPE_p_Account, 1, 0);
-        if (acct)
+        if (GNC_IS_ACCOUNT(acct))
             alist.push_back(*qof_entity_get_guid(acct));
     }
     $1 = &alist;
@@ -703,11 +702,12 @@ gnc_option_test_book_destroy(QofBook* book)
 {
     auto len = scm_is_true($input) ? scm_to_size_t(scm_length($input)) : 0;
     acclist.reserve(len);
-    for (std::size_t i = 0; i < len; ++i)
+    for (SCM node = $input; !scm_is_null (node); node = scm_cdr (node))
     {
-        SCM s_account = scm_list_ref($input, scm_from_size_t(i));
+        SCM s_account = scm_car (node);
         Account* acct = (Account*)SWIG_MustGetPtr(s_account,
                                                   SWIGTYPE_p_Account, 1, 0);
+        if (!GNC_IS_ACCOUNT(acct)) continue;
         acclist.push_back(*qof_entity_get_guid(acct));
     }
     $1 = &acclist;
@@ -726,6 +726,7 @@ gnc_option_test_book_destroy(QofBook* book)
     for (auto guid : $1)
     {
         auto acct{xaccAccountLookup(&guid, book)};
+        if (!GNC_IS_ACCOUNT(acct)) continue;
         $result = scm_cons(SWIG_NewPointerObj(acct, SWIGTYPE_p_Account, 0),
                            $result);
     }
@@ -739,6 +740,7 @@ gnc_option_test_book_destroy(QofBook* book)
     for (auto guid : *$1)
     {
         auto acct{xaccAccountLookup(&guid, book)};
+        if (!GNC_IS_ACCOUNT(acct)) continue;
         $result = scm_cons(SWIG_NewPointerObj(acct, SWIGTYPE_p_Account, 0),
                            $result);
     }
@@ -804,7 +806,8 @@ wrap_unique_ptr(GncOptionDBPtr, GncOptionDB);
 %ignore gnc_register_taxtable_option(GncOptionDB*, const char*, const char*, const char*, const char*, GncTaxTable*);
 %ignore gnc_register_counter_option(GncOptionDB*, const char*, const char*, const char*, const char*, double);
 %ignore gnc_register_counter_format_option(GncOptionDB*, const char*, const char*, const char*, const char*, std::string);
-%ignore gnc_register_dateformat_option(GncOptionDB*, const char*, const char*, const char*, const char*, std::string);
+%ignore gnc_register_dateformat_option(GncOptionDB*, const char*, const char*, const char*, const char*, GncOptionDateFormat&&);
+%ignore gnc_register_dateformat_option(GncOptionDBPtr&, const char*, const char*, const char*, const char*, GncOptionDateFormat&&);
 %ignore gnc_register_date_option(GncOptionDB*, const char*, const char*, const char*, const char*, RelativeDatePeriod, RelativeDateUI);
 %ignore gnc_register_date_option(GncOptionDB*, const char*, const char*, const char*, const char*, time64, RelativeDateUI);
 %ignore gnc_register_date_option(GncOptionDB*, const char*, const char*, const char*, const char*, RelativeDatePeriodVec, bool);
@@ -1009,10 +1012,9 @@ wrap_unique_ptr(GncOptionDBPtr, GncOptionDB);
         {
             if (!choice_is_list)
               throw std::invalid_argument{"Attempt to set multichoice with a list of values."};
-            auto len{scm_to_size_t(scm_length(new_value))};
-            for (std::size_t i = 0; i < len; ++i)
+            for (SCM node = new_value; !scm_is_null (node); node = scm_cdr (node))
             {
-                auto item{scm_list_ref(new_value, scm_from_size_t(i))};
+                auto item{scm_car (node)};
                 auto item_str{scm_to_str(item)};
                 auto index{option.permissible_value_index(item_str)};
                 free (item_str);
@@ -1226,9 +1228,10 @@ inline SCM return_scm_value(ValueType value)
                     if (guid_list.empty())
                         return scm_simple_format(SCM_BOOL_F, list_format_str, scm_list_1(no_value));
                     SCM string_list{SCM_EOL};
+                    char guid_str[GUID_ENCODING_LENGTH+1];
                     for(auto guid : guid_list)
                     {
-                        auto guid_str{guid_to_string(&guid)};
+                        guid_to_string_buff (&guid, guid_str);
                         auto guid_scm{scm_from_utf8_string(guid_str)};
                         string_list = scm_cons(guid_scm, string_list);
                     }
@@ -1718,13 +1721,13 @@ gnc_register_multichoice_callback_option(GncOptionDBPtr& db,
     static void
     test_book_set_data(QofBook* book, const char* key, void* data)
     {
-        qof_book_set_data(book, key, data);
+      qof_book_set_data(book, key, data);
     }
 
     static void
     test_book_clear_data(QofBook* book, const char* key)
     {
-        qof_book_set_data(book, key, nullptr);
+      qof_book_set_data(book, key, nullptr);
     }
 
     static void
@@ -1976,6 +1979,7 @@ gnc_register_multichoice_callback_option(GncOptionDBPtr& db,
         const auto book{qof_session_get_book(gnc_get_current_session())};
         const auto commodity_table{gnc_commodity_table_get_table(book)};
         const auto namespaces{gnc_commodity_table_get_namespaces(commodity_table)};
+        GncOption* rv = nullptr;
         for (auto node = namespaces; node && commodity == nullptr;
              node = g_list_next(node))
         {
@@ -1984,10 +1988,13 @@ gnc_register_multichoice_callback_option(GncOptionDBPtr& db,
                                                    value);
 
             if (commodity)
-                return gnc_make_commodity_option(section, name, key, doc_string,
-                                                 commodity);
+            {
+                rv = gnc_make_commodity_option(section, name, key, doc_string, commodity);
+                break;
+            }
         }
-        return nullptr;
+        g_list_free (namespaces);
+        return rv;
     }
 
     static GncOption*

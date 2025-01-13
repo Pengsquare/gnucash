@@ -214,13 +214,21 @@ scrub_start:
         if (xaccTransGetTxnType (ll_txn) == TXN_TYPE_INVOICE)
             continue; // next scrub lot split
 
-        // Empty splits can be removed immediately
-        if (gnc_numeric_zero_p (xaccSplitGetValue (sl_split)) ||
-                gnc_numeric_zero_p(xaccSplitGetValue (sl_split)))
+        // Empty splits can be immediately removed from the list.
+        if (gnc_numeric_zero_p (xaccSplitGetValue (sl_split)))
         {
-            xaccSplitDestroy (sl_split);
-            modified = TRUE;
-            goto scrub_start;
+            GList *tmp_iter = sls_iter->prev;
+            PINFO("Removing 0-value split from the lot.");
+
+            if (xaccTransGetReadOnly(xaccSplitGetParent(sl_split)))
+                gnc_lot_remove_split (scrub_lot, sl_split);
+            else
+                xaccSplitDestroy (sl_split);
+
+            sls_iter = tmp_iter;
+            if (!sls_iter)
+                goto scrub_start; // Otherwise sls_iter->next will crash
+            continue;
         }
 
         // Iterate over all splits in the lot link transaction
@@ -402,6 +410,7 @@ gncScrubLotDanglingPayments (GNCLot *lot)
 
         filtered_list = g_list_prepend (filtered_list, free_split);
     }
+    g_list_free (split_list);
 
     filtered_list = g_list_reverse (filtered_list);
     match_list = gncSLFindOffsSplits (filtered_list, ll_val);
@@ -687,7 +696,7 @@ gncScrubBusinessAccountSplits (Account *acc, QofPercentageFunc percentagefunc)
 restart:
     curr_split_no = 0;
     splits = xaccAccountGetSplitList(acc);
-    split_count = g_list_length (splits);
+    split_count = xaccAccountGetSplitsSize (acc);
     for (node = splits; node; node = node->next)
     {
         Split *split = node->data;
@@ -715,6 +724,7 @@ restart:
               curr_split_no + 1, split_count);
         curr_split_no++;
     }
+    g_list_free (splits);
     xaccAccountCommitEdit(acc);
     (percentagefunc)(NULL, -1.0);
     LEAVE ("(acc=%s)", str);

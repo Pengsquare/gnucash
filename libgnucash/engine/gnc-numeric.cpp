@@ -42,6 +42,9 @@
 #include "gnc-numeric.hpp"
 #include "gnc-rational.hpp"
 
+#include <optional>
+#include <charconv>
+
 static QofLogModule log_module = "qof";
 
 static const uint8_t max_leg_digits{18};
@@ -207,22 +210,56 @@ numeric_from_scientific_match(smatch &m)
     return std::make_pair(num, denom);
 }
 
+static std::optional<gnc_numeric>
+fast_numeral_rational (const char* str)
+{
+    if (!str || !str[0])
+        return {};
+
+    // because minint64 = -9223372036854775808 and has 20 characters,
+    // the maximum strlen to handle is 20+19+1 = 40. 48 is a nice
+    // number in 64-bit.
+    auto end_ptr{(const char*)memchr (str, '\0', 48)};
+    if (!end_ptr)
+        return {};
+
+    int64_t num, denom{};
+    auto result = std::from_chars (str, end_ptr, num);
+    if (result.ec != std::errc())
+        return {};
+
+    if (result.ptr == end_ptr)
+        return gnc_numeric_create (num, 1);
+
+    if (*result.ptr != '/')
+        return {};
+
+    result = std::from_chars (result.ptr + 1, end_ptr, denom);
+    if (result.ec != std::errc() || result.ptr != end_ptr || denom <= 0)
+        return {};
+
+    return gnc_numeric_create (num, denom);
+}
+
 GncNumeric::GncNumeric(const std::string &str, bool autoround) {
-    static const std::string numer_frag("(-?[0-9]*)");
-    static const std::string denom_frag("([0-9]+)");
+    static const std::string maybe_sign ("(-?)");
+    static const std::string opt_signed_int("(-?[0-9]*)");
+    static const std::string unsigned_int("([0-9]+)");
     static const std::string hex_frag("(0[xX][A-Fa-f0-9]+)");
     static const std::string slash("[ \\t]*/[ \\t]*");
+    static const std::string whitespace("[ \\t]+");
     /* The llvm standard C++ library refused to recognize the - in the
-     * numer_frag pattern with the default ECMAScript syntax so we use the
+     * opt_signed_int pattern with the default ECMAScript syntax so we use the
      * awk syntax.
      */
-    static const regex numeral(numer_frag);
+    static const regex numeral(opt_signed_int);
     static const regex hex(hex_frag);
-    static const regex numeral_rational(numer_frag + slash + denom_frag);
+    static const regex numeral_rational(opt_signed_int + slash + unsigned_int);
+    static const regex integer_and_fraction(maybe_sign + unsigned_int + whitespace + unsigned_int + slash + unsigned_int);
     static const regex hex_rational(hex_frag + slash + hex_frag);
-    static const regex hex_over_num(hex_frag + slash + denom_frag);
-    static const regex num_over_hex(numer_frag + slash + hex_frag);
-    static const regex decimal(numer_frag + "[.,]" + denom_frag);
+    static const regex hex_over_num(hex_frag + slash + unsigned_int);
+    static const regex num_over_hex(opt_signed_int + slash + hex_frag);
+    static const regex decimal(opt_signed_int + "[.,]" + unsigned_int);
     static const regex scientific("(?:(-?[0-9]+[.,]?)|(-?[0-9]*)[.,]([0-9]+))[Ee](-?[0-9]+)");
     static const regex has_hex_prefix(".*0[xX]$");
     smatch m, x;
@@ -233,6 +270,12 @@ GncNumeric::GncNumeric(const std::string &str, bool autoround) {
     if (str.empty())
         throw std::invalid_argument(
             "Can't construct a GncNumeric from an empty string.");
+    if (auto res = fast_numeral_rational (str.c_str()))
+    {
+        m_num = res->num;
+        m_den = res->denom;
+        return;
+    }
     if (regex_search(str, m, hex_rational))
     {
         GncNumeric n(stoll(m[1].str(), nullptr, 16),
@@ -253,6 +296,14 @@ GncNumeric::GncNumeric(const std::string &str, bool autoround) {
     {
         GncNumeric n(stoll(m[1].str()), stoll(m[2].str(), nullptr, 16));
         m_num = n.num();
+        m_den = n.denom();
+        return;
+    }
+    if (regex_search(str, m, integer_and_fraction))
+    {
+        GncNumeric n(stoll(m[3].str()), stoll(m[4].str()));
+        n += stoll(m[2].str());
+        m_num = m[1].str().empty() ? n.num() : -n.num();
         m_den = n.denom();
         return;
     }
@@ -1303,19 +1354,26 @@ gnc_num_dbg_to_string(gnc_numeric n)
     return p;
 }
 
-gboolean
-string_to_gnc_numeric(const gchar* str, gnc_numeric *n)
+gnc_numeric
+gnc_numeric_from_string (const gchar* str)
 {
+    if (!str)
+        return gnc_numeric_error (GNC_ERROR_ARG);
+
+    // the default gnc_numeric string format is "num/denom", whereby
+    // the denom must be >= 1. this speedily parses it. this also
+    // parses "num" as num/1.
+    if (auto res = fast_numeral_rational (str))
+        return *res;
+
     try
     {
-        GncNumeric an(str);
-        *n = static_cast<gnc_numeric>(an);
-        return TRUE;
+        return GncNumeric (str);
     }
     catch (const std::exception& err)
     {
         PWARN("%s", err.what());
-        return FALSE;
+        return gnc_numeric_error (GNC_ERROR_ARG);
     }
 }
 

@@ -30,6 +30,7 @@
 #include <gncTaxTable.h>
 #include <gncInvoice.h>
 #include <gnc-pricedb.h>
+#include <TransLog.h>
 
 #include <algorithm>
 #include <cassert>
@@ -271,6 +272,13 @@ typedef struct
     gnc_sql_query_info* pQueryInfo;
 } sql_backend;
 
+static void
+scrub_txn_callback (QofInstance* inst, [[maybe_unused]] void* data)
+{
+    auto trans = GNC_TRANSACTION(inst);
+    xaccTransBeginEdit(trans);
+    xaccTransCommitEdit(trans);
+}
 
 void
 GncSqlBackend::load (QofBook* book, QofBackendLoadType loadType)
@@ -336,6 +344,14 @@ GncSqlBackend::load (QofBook* book, QofBackendLoadType loadType)
                       gnc_commodity_commit_edit(comm);
                   });
     m_postload_commodities.clear();
+    /* We deferred the transaction scrub while loading because having
+     * m_loading true prevents changes from being written back to the
+     * database. Do that now.
+     */
+    xaccLogDisable();
+    auto transactions = qof_book_get_collection (book, GNC_ID_TRANS);
+    qof_collection_foreach(transactions, scrub_txn_callback, nullptr);
+    xaccLogEnable();
 
     /* Mark the session as clean -- though it should never be marked
      * dirty with this backend
@@ -669,8 +685,9 @@ GncSqlBackend::init_version_info() noexcept
         for (const auto& row : *result)
         {
             auto name = row.get_string_at_col (TABLE_COL_NAME);
-            unsigned int version = row.get_int_at_col (VERSION_COL_NAME);
-            m_versions.push_back(std::make_pair(name, version));
+            auto version = row.get_int_at_col (VERSION_COL_NAME);
+            if (name && version)
+                m_versions.push_back(std::make_pair(*name, static_cast<unsigned int>(*version)));
         }
     }
     else

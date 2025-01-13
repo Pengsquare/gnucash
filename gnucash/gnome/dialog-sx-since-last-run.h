@@ -34,7 +34,6 @@
 #define GNC_PREFS_GROUP_STARTUP "dialogs.sxs.since-last-run"
 #define GNC_PREF_RUN_AT_FOPEN   "show-at-file-open"
 #define GNC_PREF_SHOW_AT_FOPEN  "show-notify-window-at-file-open"
-#define GNC_PREF_SET_REVIEW     "review-transactions"
 
 typedef struct _GncSxSlrTreeModelAdapter GncSxSlrTreeModelAdapter;
 typedef struct _GncSxSinceLastRunDialog GncSxSinceLastRunDialog;
@@ -51,5 +50,7 @@ void gnc_sx_sxsincelast_book_opened (void);
 GncSxSinceLastRunDialog*  gnc_ui_sx_since_last_run_dialog (GtkWindow *parent,
                                                            GncSxInstanceModel *sx_instances,
                                                            GList *auto_created_txn_guids);
+
+void gnc_ui_sx_creation_error_dialog (GList **creation_errors);
 
 #endif

@@ -39,6 +39,7 @@
 
 #include <string>
 #include <sstream>
+#include <cstdint>
 
 #include "gnc-sql-connection.hpp"
 #include "gnc-sql-backend.hpp"
@@ -676,19 +677,12 @@ gnc_sql_slots_delete (GncSqlBackend* sql_be, const GncGUID* guid)
         auto result = sql_be->execute_select_statement(stmt);
         for (auto row : *result)
         {
-            try
-            {
-                const GncSqlColumnTableEntryPtr table_row =
+            const GncSqlColumnTableEntryPtr table_row =
                     col_table[guid_val_col];
-                GncGUID child_guid;
-                auto val = row.get_string_at_col (table_row->name());
-                if (string_to_guid (val.c_str(), &child_guid))
-                    gnc_sql_slots_delete (sql_be, &child_guid);
-            }
-            catch (std::invalid_argument&)
-            {
-                continue;
-            }
+            GncGUID child_guid;
+            auto val = row.get_string_at_col (table_row->name());
+            if (val && string_to_guid (val->c_str(), &child_guid))
+                gnc_sql_slots_delete (sql_be, &child_guid);
         }
     }
 

@@ -62,6 +62,8 @@ GType gnc_split_get_type(void);
 
 /** @name Split Reconciled field values
 
+    These define the various reconciliations states a split can be in.
+
     If you change these
     be sure to change gnc-ui-util.c:gnc_get_reconciled_str() and
     associated functions
@@ -108,9 +110,10 @@ void xaccSplitReinit(Split * split);
  * leaving the accounting structure out-of-balance or otherwise
  * inconsistent.
  *
- * If the deletion of the split leaves the transaction with no splits,
- * then the transaction will be marked for deletion. (It will not be
- * deleted until the xaccTransCommitEdit() routine is called.)
+ * It begins and commits an edit on the transaction, so if after the
+ * split is removed the transaction has no more splits and if is not
+ * open it too will be destroyed, as it will if the outer edits are
+ * committed without adding transactions.
  *
  * @return TRUE upon successful deletion of the split. FALSE when
  * the parenting Transaction is a read-only one.
@@ -357,11 +360,6 @@ gboolean xaccSplitEqual(const Split *sa, const Split *sb,
 Split      * xaccSplitLookup (const GncGUID *guid, QofBook *book);
 #define      xaccSplitLookupDirect(g,b) xaccSplitLookup(&(g),b)
 
-/*################## Added for Reg2 #################*/
-/* Get a GList of unique transactions containing the given list of Splits. */
-GList *xaccSplitListGetUniqueTransactionsReversed (const GList *splits);
-GList *xaccSplitListGetUniqueTransactions(const GList *splits);
-/*################## Added for Reg2 #################*/
 /** Add a peer split to this split's lot-split list.
  * @param other_split: The split whose guid to add
  * @param timestamp: The time to be recorded for the split.
@@ -552,8 +550,6 @@ gnc_numeric xaccSplitVoidFormerValue(const Split *split);
 
 /** \deprecated */
 #define xaccSplitGetGUID(X)      qof_entity_get_guid(QOF_INSTANCE(X))
-/** \deprecated */
-#define xaccSplitReturnGUID(X) (X ? *(qof_entity_get_guid(QOF_INSTANCE(X))) : *(guid_null()))
 
 #ifdef __cplusplus
 } /* extern "C" */

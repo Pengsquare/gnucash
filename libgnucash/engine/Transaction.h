@@ -359,6 +359,17 @@ void          xaccTransSetIsClosingTxn (Transaction *trans, gboolean is_closing)
 /** Returns whether this transaction is a "closing transaction" */
 gboolean      xaccTransGetIsClosingTxn (const Transaction *trans);
 
+/** Remove all splits from the transaction
+ *
+ * Clears the split list of the transaction. All splits that the
+ * transaction still owns will be destroyed, and others will be
+ * unlinked.
+ *
+ * Opens and commits an edit on the transaction, so this will destroy
+ * the transaction if it isn't already open, as will committing the
+ * outer edits if new splits are not added before hand.
+ */
+void xaccTransClearSplits(Transaction* trans);
 
 /** Add a split to the transaction
  *
@@ -441,13 +452,6 @@ const char *  xaccTransGetReadOnly (Transaction *trans);
  * qof_book_uses_autofreeze() and qof_book_get_autofreeze_gdate(). */
 gboolean xaccTransIsReadonlyByPostedDate(const Transaction *trans);
 
-/*################## Added for Reg2 #################*/
-
-/** Returns TRUE if this Transaction's posted-date is in the future */
-gboolean xaccTransInFutureByPostedDate (const Transaction *trans);
-
-/*################## Added for Reg2 #################*/
-
 /** Returns the number of splits in this transaction. */
 int           xaccTransCountSplits (const Transaction *trans);
 
@@ -519,15 +523,6 @@ gnc_numeric xaccTransGetAccountValue (const Transaction *trans,
 /** Same as xaccTransGetAccountValue, but uses the Account's commodity. */
 gnc_numeric xaccTransGetAccountAmount (const Transaction *trans,
                                        const Account *account);
-
-/*################## Added for Reg2 #################*/
-/* Gets the amt/val rate, i.e. rate from the transaction currency to
-   the 'split_com' */
-gboolean
-xaccTransGetRateForCommodity(const Transaction *trans,
-                             const gnc_commodity *split_com,
-                             const Split *split_to_exclude, gnc_numeric *rate);
-/*################## Added for Reg2 #################*/
 
 /* Compute the conversion rate for the transaction to this account.
  * Any "split value" (which is in the transaction currency),
@@ -791,8 +786,6 @@ void xaccTransRecordPrice (Transaction *trans, PriceSource source);
 #define xaccTransGetBook(X)      qof_instance_get_book (QOF_INSTANCE(X))
 /** \deprecated */
 #define xaccTransGetGUID(X)      qof_entity_get_guid(QOF_INSTANCE(X))
-/** \deprecated */
-#define xaccTransReturnGUID(X) (X ? *(qof_entity_get_guid(QOF_INSTANCE(X))) : *(guid_null()))
 
 #ifdef __cplusplus
 } /* extern "C" */

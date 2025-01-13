@@ -102,10 +102,10 @@ struct tm*
 gnc_localtime (const time64 *secs)
 {
     auto time = static_cast<struct tm*>(calloc(1, sizeof(struct tm)));
-    if (gnc_localtime_r (secs, time) == NULL)
+    if (gnc_localtime_r (secs, time) == nullptr)
     {
         gnc_tm_free (time);
-        return NULL;
+        return nullptr;
     }
     return time;
 }
@@ -120,32 +120,23 @@ gnc_localtime_r (const time64 *secs, struct tm* time)
     }
     catch(std::invalid_argument&)
     {
-        return NULL;
+        return nullptr;
     }
 }
 
 static void
-normalize_time_component (int *inner, int *outer, unsigned int divisor,
-                          int base)
+normalize_time_component (int *inner, int *outer, int divisor)
 {
-     while (*inner < base)
+     while (*inner < 0)
      {
           --(*outer);
           *inner += divisor;
      }
-     while (*inner > static_cast<gint>(divisor))
+     while (*inner >= divisor)
      {
           ++(*outer);
           *inner -= divisor;
      }
-}
-
-static void
-normalize_month(int *month, int *year)
-{
-    ++(*month);
-    normalize_time_component(month, year, 12, 1);
-    --(*month);
 }
 
 static void
@@ -160,15 +151,15 @@ normalize_struct_tm (struct tm* time)
      if (year < 1400) year += 1400;
      if (year > 9999) year %= 10000;
 
-     normalize_time_component (&(time->tm_sec), &(time->tm_min), 60, 0);
-     normalize_time_component (&(time->tm_min), &(time->tm_hour), 60, 0);
-     normalize_time_component (&(time->tm_hour), &(time->tm_mday), 24, 0);
-     normalize_month (&(time->tm_mon), &year);
+     normalize_time_component (&(time->tm_sec), &(time->tm_min), 60);
+     normalize_time_component (&(time->tm_min), &(time->tm_hour), 60);
+     normalize_time_component (&(time->tm_hour), &(time->tm_mday), 24);
+     normalize_time_component (&(time->tm_mon), &year, 12);
 
      // auto month_in_range = []int (int m){ return (m + 12) % 12; }
      while (time->tm_mday < 1)
      {
-         normalize_month (&(--time->tm_mon), &year);
+         normalize_time_component (&(--time->tm_mon), &year, 12);
          last_day = gnc_date_get_last_mday (time->tm_mon, year);
          time->tm_mday += last_day;
      }
@@ -176,7 +167,7 @@ normalize_struct_tm (struct tm* time)
      while (time->tm_mday > last_day)
      {
           time->tm_mday -= last_day;
-          normalize_month(&(++time->tm_mon), &year);
+          normalize_time_component(&(++time->tm_mon), &year, 12);
           last_day = gnc_date_get_last_mday (time->tm_mon, year);
      }
      time->tm_year = year - 1900;
@@ -187,14 +178,14 @@ gnc_gmtime (const time64 *secs)
 {
     try
     {
-        auto time = static_cast<struct tm*>(calloc(1, sizeof(struct tm)));
         GncDateTime gncdt(*secs);
+        auto time = static_cast<struct tm*>(calloc(1, sizeof(struct tm)));
         *time = gncdt.utc_tm();
         return time;
     }
     catch(std::invalid_argument&)
     {
-        return NULL;
+        return nullptr;
     }
 
 }
@@ -271,7 +262,7 @@ gnc_time (time64 *tbuf)
 {
     GncDateTime gncdt;
     auto time = static_cast<time64>(gncdt);
-    if (tbuf != NULL)
+    if (tbuf != nullptr)
         *tbuf = time;
     return time;
 }
@@ -279,6 +270,7 @@ gnc_time (time64 *tbuf)
 gdouble
 gnc_difftime (const time64 secs1, const time64 secs2)
 {
+    PWARN ("gnc_difftime is deprecated");
     return (double)secs1 - (double)secs2;
 }
 
@@ -306,7 +298,7 @@ gnc_date_dateformat_to_string(QofDateFormat format)
     case QOF_DATE_FORMAT_UNSET:
         return "unset";
     default:
-        return NULL;
+        return nullptr;
     }
 }
 
@@ -341,7 +333,8 @@ gnc_date_string_to_dateformat(const char* fmt_str, QofDateFormat *format)
 const char*
 gnc_date_monthformat_to_string(GNCDateMonthFormat format)
 {
-    switch (format)
+ //avoid UB if format is out of range
+    switch (static_cast<uint8_t>(format))
     {
     case GNCDATE_MONTH_NUMBER:
         return "number";
@@ -350,7 +343,7 @@ gnc_date_monthformat_to_string(GNCDateMonthFormat format)
     case GNCDATE_MONTH_NAME:
         return "name";
     default:
-        return NULL;
+        return nullptr;
     }
 }
 
@@ -418,17 +411,17 @@ time64CanonicalDayTime (time64 t)
 /* NB: month is 1-12, year is 0001 - 9999. */
 int gnc_date_get_last_mday (int month, int year)
 {
-    static int last_day_of_month[2][12] =
-    {
-        /* non leap */ {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
-        /*   leap   */ {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
-    };
+    static int last_day_of_month[12] =
+        {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  
+    g_assert(month >= 0 && month < 12);
 
-    /* Is this a leap year? */
-    if (year % 2000 == 0) return last_day_of_month[1][month];
-    if (year % 400 == 0 ) return last_day_of_month[0][month];
-    if (year % 4   == 0 ) return last_day_of_month[1][month];
-    return last_day_of_month[0][month];
+    // To be a leap year, the year number must be divisible by four,
+    // except for end-of-century years, which must be divisible by 400.
+
+    return last_day_of_month[month] +
+        (month == 1 && year % 4 == 0 && !(year % 100 == 0 && year % 400 != 0) ?
+        1 : 0);
 }
 
 QofDateFormat qof_date_format_get (void)
@@ -438,7 +431,9 @@ QofDateFormat qof_date_format_get (void)
 
 void qof_date_format_set(QofDateFormat df)
 {
-    if (df >= DATE_FORMAT_FIRST && df <= DATE_FORMAT_LAST)
+//avoid UB if df is out of range
+    auto dfi{static_cast<uint8_t>(df)};
+    if (dfi >= DATE_FORMAT_FIRST && dfi <= DATE_FORMAT_LAST)
     {
         prevQofDateFormat = dateFormat;
         dateFormat = df;
@@ -708,9 +703,9 @@ qof_scan_date_internal (const char *buff, int *day, int *month, int *year,
     dupe = g_strdup (buff);
 
     tmp = dupe;
-    first_field = NULL;
-    second_field = NULL;
-    third_field = NULL;
+    first_field = nullptr;
+    second_field = nullptr;
+    third_field = nullptr;
 
     /* Use strtok to find delimiters */
     if (tmp)
@@ -720,10 +715,10 @@ qof_scan_date_internal (const char *buff, int *day, int *month, int *year,
         first_field = strtok (tmp, delims);
         if (first_field)
         {
-            second_field = strtok (NULL, delims);
+            second_field = strtok (nullptr, delims);
             if (second_field)
             {
-                third_field = strtok (NULL, delims);
+                third_field = strtok (nullptr, delims);
             }
         }
     }
@@ -752,10 +747,14 @@ qof_scan_date_internal (const char *buff, int *day, int *month, int *year,
             struct tm thetime;
             /* Parse time string. */
             memset(&thetime, -1, sizeof(struct tm));
-            strptime (buff, normalize_format(GNC_D_FMT).c_str(), &thetime);
+            char *strv = strptime (buff, normalize_format(GNC_D_FMT).c_str(),
+                                   &thetime);
 
             if (third_field)
             {
+                if (!strv) // Parse failed, continuing gives the wrong result.
+                    return FALSE;
+
                 /* Easy.  All three values were parsed. */
                 iyear = thetime.tm_year + 1900;
                 iday = thetime.tm_mday;
@@ -950,7 +949,7 @@ char dateSeparator (void)
             time64 secs;
             gchar *s;
 
-            secs = gnc_time (NULL);
+            secs = gnc_time (nullptr);
             gnc_localtime_r(&secs, &tm);
             auto normalized_fmt =
                 normalize_format(qof_date_format_get_string(dateFormat));
@@ -971,9 +970,9 @@ gchar *
 qof_time_format_from_utf8(const gchar *utf8_format)
 {
     gchar *retval;
-    GError *error = NULL;
+    GError *error = nullptr;
 
-    retval = g_locale_from_utf8(utf8_format, -1, NULL, NULL, &error);
+    retval = g_locale_from_utf8(utf8_format, -1, nullptr, nullptr, &error);
 
     if (!retval)
     {
@@ -988,9 +987,9 @@ gchar *
 qof_formatted_time_to_utf8(const gchar *locale_string)
 {
     gchar *retval;
-    GError *error = NULL;
+    GError *error = nullptr;
 
-    retval = g_locale_to_utf8(locale_string, -1, NULL, NULL, &error);
+    retval = g_locale_to_utf8(locale_string, -1, nullptr, nullptr, &error);
 
     if (!retval)
     {
@@ -1013,7 +1012,7 @@ qof_format_time(const gchar *format, const struct tm *tm)
 
     locale_format = qof_time_format_from_utf8(format);
     if (!locale_format)
-        return NULL;
+        return nullptr;
 
     tmpbufsize = MAX(128, strlen(locale_format) * 2);
     while (TRUE)
@@ -1037,7 +1036,7 @@ qof_format_time(const gchar *format, const struct tm *tm)
                           "exceeded: giving up");
                 g_free(locale_format);
 
-                return NULL;
+                return nullptr;
             }
         }
         else
@@ -1077,7 +1076,7 @@ qof_strftime(gchar *buf, gsize max, const gchar *format, const struct tm *tm)
     {
         /* Ensure only whole characters are copied into the buffer. */
         gchar *end = g_utf8_find_prev_char(convbuf, convbuf + max);
-        g_assert(end != NULL);
+        g_assert(end != nullptr);
         convlen = end - convbuf;
 
         /* Return 0 because the buffer isn't large enough. */
@@ -1140,7 +1139,7 @@ gnc_iso8601_to_time64_gmt(const char *cstr)
 char *
 gnc_time64_to_iso8601_buff (time64 time, char * buff)
 {
-    if (! buff) return NULL;
+    if (!buff) return nullptr;
     try
     {
         GncDateTime gncdt(time);

@@ -362,10 +362,6 @@ test_price_list_is_duplicate (Fixture *fixture, gconstpointer pData)
 gboolean
 gnc_price_list_insert(PriceList **prices, GNCPrice *p, gboolean check_dupl)// Local: 3:0:0
 */
-/* static void
-test_gnc_price_list_insert (Fixture *fixture, gconstpointer pData)
-{
-}*/
 /* gnc_price_list_remove
 gboolean
 gnc_price_list_remove(PriceList **prices, GNCPrice *p)// Local: 1:0:0
@@ -681,6 +677,37 @@ test_num_prices_helper (Fixture *fixture, gconstpointer pData)
 guint
 gnc_pricedb_get_num_prices(GNCPriceDB *db)// C: 2 in 1  Local: 0:0:0
 */
+
+static void
+test_gnc_price_list_insert (PriceDBFixture *fixture, gconstpointer pData)
+{
+    GNCPriceDB *db = fixture->pricedb;
+    Commodities *c = fixture->com;
+    QofBook *book = qof_instance_get_book(QOF_INSTANCE(db));
+
+    g_assert_cmpint (gnc_pricedb_get_num_prices(fixture->pricedb), ==, 42);
+
+    // nop because 12/4/09 already exists
+    gnc_pricedb_add_price (db, construct_price(book, c->usd, c->aud,
+                                               gnc_dmy2time64(12, 4, 2009),
+                                               PRICE_SOURCE_USER_PRICE,
+                                               gnc_numeric_create(131190, 10000)));
+    g_assert_cmpint (gnc_pricedb_get_num_prices(fixture->pricedb), ==, 42);
+
+    // num_prices increases because because 14/4/09 doesn't exist yet
+    gnc_pricedb_add_price (db, construct_price(book, c->usd, c->aud,
+                                               gnc_dmy2time64(14, 4, 2009),
+                                               PRICE_SOURCE_USER_PRICE,
+                                               gnc_numeric_create(131190, 10000)));
+    g_assert_cmpint (gnc_pricedb_get_num_prices(fixture->pricedb), ==, 43);
+
+    // nop because because 14/4/09 already exists
+    gnc_pricedb_add_price (db, construct_price(book, c->usd, c->aud,
+                                               gnc_dmy2time64(14, 4, 2009),
+                                               PRICE_SOURCE_USER_PRICE,
+                                               gnc_numeric_create(131190, 10000)));
+    g_assert_cmpint (gnc_pricedb_get_num_prices(fixture->pricedb), ==, 43);
+}
 
 static void
 test_gnc_price_list_equal (PriceDBFixture *fixture, gconstpointer pData)
@@ -1122,11 +1149,6 @@ test_gnc_pricedb_lookup_day_t64 (PriceDBFixture *fixture, gconstpointer pData)
     g_log_set_default_handler (hdlr, 0);
 }
 
-// Not Used
-/* gnc_pricedb_lookup_at_time64
-GNCPrice *
-gnc_pricedb_lookup_at_time64(GNCPriceDB *db,// Local: 0:0:0
-*/
 /* lookup_nearest_in_time
 static GNCPrice *
 lookup_nearest_in_time(GNCPriceDB *db,// Local: 2:0:0
@@ -1466,6 +1488,49 @@ test_gnc_pricedb_get_nearest_before_price (PriceDBFixture *fixture, gconstpointe
     g_assert_cmpint(result.num, ==, 278150);
     g_assert_cmpint(result.denom, ==, 1331);
 }
+
+/* gnc_pricedb_foreach_price
+gboolean
+gnc_pricedb_foreach_price(GNCPriceDB *db,// C: 2 in 2  Local: 6:0:0
+*/
+
+static gboolean prepend_price_time64 (GNCPrice *p, GList **lst)
+{
+    time64* time = g_new0(time64, 1);
+    *time = gnc_price_get_time64 (p);
+    *lst = g_list_prepend (*lst, time);
+    return TRUE;
+}
+
+static gboolean inc_counter (GNCPrice *p, guint *count)
+{
+    (*count)++;
+    return TRUE;
+}
+
+static void
+test_gnc_pricedb_foreach_price (PriceDBFixture *fixture, gconstpointer pData)
+{
+    /* unstable -- cannot guarantee order. count number prices. */
+    guint count = 0;
+    gnc_pricedb_foreach_price (fixture->pricedb, (GncPriceForeachFunc)inc_counter, &count, FALSE);
+    g_assert_cmpint (count, ==, 42);
+
+    /* stable -- can guarantee order. check price dates. */
+    GList *lst = NULL;
+    gnc_pricedb_foreach_price (fixture->pricedb, (GncPriceForeachFunc)prepend_price_time64, &lst, TRUE);
+
+    gchar *date = qof_print_date(*(time64*)g_list_first (lst)->data);
+    g_assert_cmpstr (date, ==, "04/11/09");
+    g_free (date);
+
+    date = qof_print_date(*(time64*)g_list_last (lst)->data);
+    g_assert_cmpstr (date, ==, "11/12/14");
+    g_free (date);
+
+    g_list_free_full (lst, g_free);
+}
+
 /* pricedb_foreach_pricelist
 static void
 pricedb_foreach_pricelist(gpointer key, gpointer val, gpointer user_data)// Local: 0:1:0
@@ -1506,14 +1571,6 @@ stable_price_traversal(GNCPriceDB *db,// Local: 1:0:0
 test_stable_price_traversal (Fixture *fixture, gconstpointer pData)
 {
 }*/
-/* gnc_pricedb_foreach_price
-gboolean
-gnc_pricedb_foreach_price(GNCPriceDB *db,// C: 2 in 2  Local: 6:0:0
-*/
-/* static void
-test_gnc_pricedb_foreach_price (Fixture *fixture, gconstpointer pData)
-{
-}*/
 /* add_price_to_list
 static gboolean
 add_price_to_list (GNCPrice *p, gpointer data)// Local: 0:1:0
@@ -1530,11 +1587,6 @@ gnc_price_fixup_legacy_commods(gpointer data, gpointer user_data)// Local: 0:1:0
 test_gnc_price_fixup_legacy_commods (Fixture *fixture, gconstpointer pData)
 {
 }*/
-// Not Used
-/* gnc_pricedb_substitute_commodity
-void
-gnc_pricedb_substitute_commodity(GNCPriceDB *db,// Local: 0:0:0
-*/
 /* gnc_price_print
 void
 gnc_price_print(GNCPrice *p, FILE *f, int indent)// Local: 1:0:0
@@ -1672,7 +1724,7 @@ test_suite_gnc_pricedb (void)
 // GNC_TEST_ADD (suitename, "gnc price equal", Fixture, NULL, setup, test_gnc_price_equal, teardown);
 // GNC_TEST_ADD (suitename, "compare prices by date", Fixture, NULL, setup, test_compare_prices_by_date, teardown);
 // GNC_TEST_ADD (suitename, "price list is duplicate", Fixture, NULL, setup, test_price_list_is_duplicate, teardown);
-// GNC_TEST_ADD (suitename, "gnc price list insert", Fixture, NULL, setup, test_gnc_price_list_insert, teardown);
+GNC_TEST_ADD (suitename, "gnc price list insert", PriceDBFixture, NULL, setup, test_gnc_price_list_insert, teardown);
 // GNC_TEST_ADD (suitename, "gnc price list remove", Fixture, NULL, setup, test_gnc_price_list_remove, teardown);
 // GNC_TEST_ADD (suitename, "price list destroy helper", Fixture, NULL, setup, test_price_list_destroy_helper, teardown);
 // GNC_TEST_ADD (suitename, "gnc price list destroy", Fixture, NULL, setup, test_gnc_price_list_destroy, teardown);
@@ -1732,7 +1784,7 @@ GNC_TEST_ADD (suitename, "gnc price list equal", PriceDBFixture, NULL, setup, te
 // GNC_TEST_ADD (suitename, "unstable price traversal", Fixture, NULL, setup, test_unstable_price_traversal, teardown);
 // GNC_TEST_ADD (suitename, "compare kvpairs by commodity key", Fixture, NULL, setup, test_compare_kvpairs_by_commodity_key, teardown);
 // GNC_TEST_ADD (suitename, "stable price traversal", Fixture, NULL, setup, test_stable_price_traversal, teardown);
-// GNC_TEST_ADD (suitename, "gnc pricedb foreach price", Fixture, NULL, setup, test_gnc_pricedb_foreach_price, teardown);
+GNC_TEST_ADD (suitename, "gnc pricedb foreach price", PriceDBFixture, NULL, setup, test_gnc_pricedb_foreach_price, teardown);
 // GNC_TEST_ADD (suitename, "add price to list", Fixture, NULL, setup, test_add_price_to_list, teardown);
 // GNC_TEST_ADD (suitename, "gnc price fixup legacy commods", Fixture, NULL, setup, test_gnc_price_fixup_legacy_commods, teardown);
 // GNC_TEST_ADD (suitename, "gnc price print", Fixture, NULL, setup, test_gnc_price_print, teardown);

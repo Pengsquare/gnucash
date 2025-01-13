@@ -10,7 +10,7 @@ see the table at https://wiki.gnucash.org/wiki/Mailing_Lists")
 
  N_( "The GnuCash developers are easy to contact. As well \
 as several mailing lists, you can chat to them live on IRC! \
-Join them on #gnucash at irc.gnome.org")
+Join them on #gnucash at irc.gimp.net")
 
  N_( "You can easily import your existing financial data from Quicken, \
 MS Money or other programs that export QIF files or OFX files. In the \
@@ -125,6 +125,9 @@ to a single account, start the search from that account's register.")
  N_( "To visually compare on screen the contents of 2 tabs, \
 in one of the tabs, select Window->New Window with Page \
 from the menu to duplicate that tab in a new window.")
+
+ N_( "You can assign or modify keyboard shortcuts for many GnuCash \
+actions. See https://wiki.gnucash.org/wiki/Keyboard_Shortcuts.")
 
  N_( "There is a theory that if ever anyone discovers what \
 the Universe is for and why it is here, it will instantly \

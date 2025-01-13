@@ -141,10 +141,6 @@ typedef enum
     QOF_DATE_COMPLETION_SLIDING,  /**< use sliding 12-month window */
 } QofDateCompletion;
 
-/** \deprecated qof_date_format_get_format has been replaced
-by qof_date_text_format_get_string */
-#define qof_date_format_get_format qof_date_text_format_get_string
-
 /**
  * This is how to format the month, as a number, an abbreviated string,
  * or the full name.
@@ -228,6 +224,7 @@ gchar* gnc_ctime (const time64 *secs);
 time64 gnc_time (time64 *tbuf);
 
 /** \brief Find the difference in seconds between two time values
+ *         (deprecated)
  *  \param secs1: The first time value, in Seconds since
  * 00:00:00 UTC 01 January 1970 (negative values are seconds before that moment)
  *  \param secs2: The second time value, in Seconds since

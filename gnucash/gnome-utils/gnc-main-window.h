@@ -63,12 +63,7 @@ typedef struct
 } GncMenuUpdate;
 
 /** The instance data structure for a main window object. */
-typedef struct GncMainWindow
-{
-    GtkApplicationWindow gtk_application_window;  /**< The parent object for a main window. */
-    gboolean window_quitting;                     /**< Set to TRUE when quitting from this window. */
-    gboolean just_plugin_prefs;                   /**< Just remove preferences only from plugins */
-} GncMainWindow;
+typedef struct _GncMainWindow GncMainWindow;
 
 /** The class data structure for a main window object. */
 typedef struct
@@ -178,6 +173,15 @@ GncPluginPage *gnc_main_window_get_current_page (GncMainWindow *window);
 void
 main_window_update_page_name (GncPluginPage *page,
                               const gchar *name_in);
+
+/** Update the long name of the page in the main window.
+ *
+ *  @param page The page to be updated.
+ *  @param long_name_in The new long name for the page.
+*/
+void
+main_window_update_page_long_name (GncPluginPage *page,
+                                   const gchar *long_name_in);
 
 /** Update the color on the page tabs in the main window.
  *
@@ -406,7 +410,6 @@ gboolean gnc_main_window_button_press_cb (GtkWidget *whatever,
         GdkEventButton *event,
         GncPluginPage *page);
 
-
 /** Callback function invoked when the user requests that Gnucash
  *  popup the contextual menu via the keyboard context-menu request
  *  key combination (Shift-F10 by default).
@@ -535,6 +538,8 @@ void gnc_main_window_update_menu_and_toolbar (GncMainWindow *window,
  * Shows all main windows.
  **/
 void gnc_main_window_show_all_windows(void);
+
+gboolean gnc_main_window_just_plugin_prefs (GncMainWindow* window);
 
 /**
  * Opens the Book Options dialog.

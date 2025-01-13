@@ -41,6 +41,7 @@
 #include "gnc-budget.h"
 #include "gnc-commodity.h"
 #include "gnc-datetime.hpp"
+#include <algorithm>
 #include <string>
 #include <utility>
 #include <vector>
@@ -49,6 +50,7 @@
 #include <variant>
 #include <iostream>
 #include <limits>
+#include <cstdint>
 
 #include "gnc-option-uitype.hpp"
 
@@ -341,7 +343,8 @@ template<class OptType,
 std::istream& operator>>(std::istream& iss, OptType& opt)
 {
     if constexpr (std::is_same_v<std::decay_t<decltype(opt.get_value())>, const _gncOwner*> ||
-                  std::is_same_v<std::decay_t<decltype(opt.get_value())>, const _QofQuery*>)
+                  std::is_same_v<std::decay_t<decltype(opt.get_value())>, const _QofQuery*> ||
+                  std::is_same_v<std::decay_t<decltype(opt.get_value())>, GncOptionDateFormat>)
         return iss;
     else
     {
@@ -394,13 +397,13 @@ template <typename ValueType>
 class GncOptionRangeValue : public OptionClassifier
 {
 public:
-    GncOptionRangeValue<ValueType>(const char* section, const char* name,
+    GncOptionRangeValue(const char* section, const char* name,
                                    const char* key, const char* doc_string,
                                    ValueType value, ValueType min,
                                    ValueType max, ValueType step) :
         GncOptionRangeValue<ValueType>{section, name, key, doc_string, value, min,
                                        max, step, GncOptionUIType::NUMBER_RANGE} {}
-    GncOptionRangeValue<ValueType>(const char* section, const char* name,
+    GncOptionRangeValue(const char* section, const char* name,
                                    const char* key, const char* doc_string,
                                    ValueType value, ValueType min,
                                    ValueType max, ValueType step, GncOptionUIType ui) :
@@ -410,8 +413,8 @@ public:
         m_min{min}, m_max{max}, m_step{step} {
            if constexpr(is_same_decayed_v<ValueType, int>)
                 set_alternate(true);}
-    GncOptionRangeValue<ValueType>(const GncOptionRangeValue<ValueType>&) = default;
-    GncOptionRangeValue<ValueType>(GncOptionRangeValue<ValueType>&&) = default;
+    GncOptionRangeValue(const GncOptionRangeValue<ValueType>&) = default;
+    GncOptionRangeValue(GncOptionRangeValue<ValueType>&&) = default;
     GncOptionRangeValue<ValueType>& operator=(const GncOptionRangeValue<ValueType>&) = default;
     GncOptionRangeValue<ValueType>& operator=(GncOptionRangeValue<ValueType>&&) = default;
     ValueType get_value() const { return m_value; }
@@ -898,7 +901,9 @@ operator<< <GncOptionAccountListValue>(std::ostream& oss,
             first = false;
         else
             oss << " ";
-        oss << guid_to_string(&value);
+        char strbuff[GUID_ENCODING_LENGTH+1];
+        guid_to_string_buff (&value, strbuff);
+        oss << strbuff;
     }
     return oss;
 }

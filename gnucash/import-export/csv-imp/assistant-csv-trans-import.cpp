@@ -34,7 +34,9 @@
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
+#include <stdexcept>
 #include <stdlib.h>
+#include <cstdint>
 
 #include "gnc-path.h"
 #include "gnc-ui.h"
@@ -1726,7 +1728,14 @@ CsvImpTransAssist::preview_refresh ()
         gtk_entry_set_text (GTK_ENTRY(custom_entry), separators.c_str());
         g_signal_handlers_unblock_by_func (custom_cbutton, (gpointer) csv_tximp_preview_sep_button_cb, this);
         g_signal_handlers_unblock_by_func (custom_entry, (gpointer) csv_tximp_preview_sep_button_cb, this);
-        csv_tximp_preview_sep_button_cb (GTK_WIDGET (custom_cbutton), this);
+        try
+        {
+            tx_imp->tokenize (false);
+        }
+        catch(std::range_error& err)
+        {
+            PERR("CSV Tokenization Failed: %s", err.what());
+        }
     }
 
     // Repopulate the parsed data table
@@ -2179,7 +2188,12 @@ CsvImpTransAssist::assist_match_page_prepare ()
                 draft_trans->m_trec_date ? static_cast<time64>(GncDateTime(*draft_trans->m_trec_date, DayPart::neutral)) : 0,
             };
 
-            gnc_gen_trans_list_add_trans_with_split_data (gnc_csv_importer_gui, std::move (draft_trans->trans), &lsplit);
+//A tramsaction with no splits is invalid and will crash later.
+            if (xaccTransGetSplit(draft_trans->trans, 0))
+                gnc_gen_trans_list_add_trans_with_split_data (gnc_csv_importer_gui, std::move (draft_trans->trans),
+                                                              &lsplit);
+            else
+                xaccTransDestroy(draft_trans->trans);
             draft_trans->trans = nullptr;
         }
     }

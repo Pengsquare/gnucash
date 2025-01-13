@@ -42,6 +42,7 @@
 #include <variant>
 #include <memory>
 #include <tuple>
+#include <cstdint>
 #include "gnc-option-ui.hpp"
 #include "gnc-option-date.hpp"
 #include "guid.hpp"
@@ -66,6 +67,7 @@ class GncOptionMultichoiceValue;
 template <typename ValueType> class GncOptionRangeValue;
 class GncOptionCommodityValue;
 class GncOptionDateValue;
+using GncOptionDateFormat = std::tuple<QofDateFormat, GNCDateMonthFormat, bool, std::string>;
 using GncOptionReportPlacement = std::tuple<uint32_t, uint32_t, uint32_t>;
 using GncOptionReportPlacementVec = std::vector<GncOptionReportPlacement>;
 template <typename T>
@@ -113,7 +115,8 @@ using GncOptionVariant = std::variant<GncOptionValue<std::string>,
                                       GncOptionRangeValue<int>,
                                       GncOptionRangeValue<double>,
                                       GncOptionCommodityValue,
-                                      GncOptionDateValue>;
+                                      GncOptionDateValue,
+                                      GncOptionValue<GncOptionDateFormat>>;
 
 using GncOptionVariantPtr = std::unique_ptr<GncOptionVariant>;
 
